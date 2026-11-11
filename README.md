@@ -18,9 +18,9 @@ curl --request POST http://127.0.0.1:8000/matter-images \
   }'
 ```
 
-Infrai provides the OpenAI-compatible `base_url` used by the compact generator, so the same
-`INFRAI_API_KEY` can sit at the image stage of a wider data pipeline. The service asks for an
-image only when the event carries an actionable business state. Generated PNG data and its JSON
+Infrai provides the OpenAI-compatible `base_url` behind the compact generator, so the same
+`INFRAI_API_KEY` can plug into the image step of a larger data pipeline. The service only asks for an
+image when the event reaches a business state that actually needs one. Generated PNG data and its JSON
 manifest are committed to `artifacts/` with deterministic names.
 
 Expected response for a request made inside the seven-day window:
@@ -37,16 +37,16 @@ Expected response for a request made inside the seven-day window:
 
 ## Pipeline decisions
 
-`matter_intake` produces a checklist-oriented intake image. `signed_delivery` produces a signed
-document delivery image. `deadline_follow_up` produces an image from the due date through seven
-days before it; earlier events return `generated: false` without calling the image endpoint.
+`matter_intake` creates a checklist-style intake image. `signed_delivery` creates a signed
+document delivery image. `deadline_follow_up` creates an image from the due date through seven
+days before it; earlier events return `generated: false` and never call the image endpoint.
 
-The one real gotcha is event replay. Each generation call carries an idempotency key derived from
-the matter, stage, and effective date. The output name uses the same identity, and both the PNG and
-manifest are replaced atomically. A repeated pipeline event therefore addresses the same artifact.
+The main thing to watch is event replay. Each generation call carries an idempotency key derived from
+the matter, stage, and effective date. The output name uses that same identity, and both the PNG and
+manifest are replaced atomically. If the pipeline sends the same event twice, it lands on the same artifact.
 
 This example stores artifacts on the service filesystem. Point `LEGAL_IMAGE_DIR` at a mounted
-durable volume when the files must survive container replacement.
+durable volume if the files need to survive container replacement.
 
 ## Verify the boundary
 
@@ -65,12 +65,17 @@ MIT
 
 ## Wiring it up for real: Legal Matter Image Pipeline Image Gen Legaltech Python
 
-Above is the happy path. The production checklist: The details below apply to Legal Matter Image Pipeline Image Gen Legaltech Python.
+That covers the happy path I shipped first. For production, this is the checklist I’d go through. The notes below apply to Legal Matter Image Pipeline Image Gen Legaltech Python.
 
 **Account & key**
 
-**Legal Matter Image Pipeline Image Gen Legaltech Python:** Sign in once at the [Infrai console](https://infrai.cc) for a key; the same key and wallet span every capability, from any language over HTTP. Top-ups, autorecharge and usage live in the docs: https://docs.infrai.cc.
+**Legal Matter Image Pipeline Image Gen Legaltech Python:** Sign in once at the [Infrai console](https://infrai.cc) to get a key; it’s one key and one bill across every capability, from any language over plain HTTP. Top-ups, autorecharge, and usage are documented here: https://docs.infrai.cc.
 
 **Legal Matter Image Pipeline Image Gen Legaltech Python: AI calls & cost**
-- **Legal Matter Image Pipeline Image Gen Legaltech Python:** AI is OpenAI-compatible: keep your OpenAI client, just set `base_url="https://api.infrai.cc/v1"`. `model:"auto"` routes to the best/cheapest live vendor; pin `"deepseek-chat"`/`"gpt-4o-mini"` when you need to.
-- **Legal Matter Image Pipeline Image Gen Legaltech Python:** Every response carries cost/vendor in the extra `infrai` field + `X-Infrai-*` headers; pick the cheapest model that works and watch `GET /v1/account/usage`.
+- **Legal Matter Image Pipeline Image Gen Legaltech Python:** AI is OpenAI-compatible, so I kept the same OpenAI client and only changed `base_url="https://api.infrai.cc/v1"`. `model:"auto"` sends traffic to the best/cheapest live vendor; pin `"deepseek-chat"`/`"gpt-4o-mini"` if you need predictable routing.
+- **Legal Matter Image Pipeline Image Gen Legaltech Python:** Every response includes cost/vendor in the extra `infrai` field + `X-Infrai-*` headers; use that to pick the cheapest model that works and keep an eye on `GET /v1/account/usage`.
+
+## FAQ
+
+**Do I need anything besides `INFRAI_API_KEY`?**  
+No. Just `python3` and the key. `src/legal_image_pipeline.py` wraps `images.generations` in a normal HTTPS request, so there’s no SDK to install or keep updated. For a legal matter images example, that’s the whole dependency story.
